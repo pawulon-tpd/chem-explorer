@@ -1,0 +1,13 @@
+# dependencies / builds
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+
+# copied from node_modules by client/scripts/copy-rdkit.mjs
+client/public/rdkit/
+
+# local tooling / OS
+.claude/
+.DS_Store

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chem Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <!-- RDKit.js is copied into public/rdkit by scripts/copy-rdkit.mjs -->
+    <script src="./rdkit/RDKit_minimal.js"></script>
+  </head>
+  <body>
+    <div id="game"></div>
+
+    <div id="creator" class="hidden"></div>
+
+    <div id="hud" class="hidden">
+      <div id="region" class="panel">Loading world…</div>
+      <div id="badge" class="panel hidden" title="client/public/world.json not found; showing placeholder data">mock data</div>
+      <div id="hint" class="panel hidden"></div>
+      <div id="roster" class="panel hidden"></div>
+      <div id="toasts"></div>
+      <div id="minimap-frame" class="hidden"></div>
+      <button id="help-btn" class="panel" type="button">H · help</button>
+
+      <div id="audit" class="panel hidden">
+        <h3>Audit mode</h3>
+        <p class="muted">Lines join each compound to its 3 most similar compounds. Long lines mark where map distance doesn't match chemical distance.</p>
+        <div class="legend"><span>low</span><i></i><span>high Tanimoto</span></div>
+        <dl id="metrics"></dl>
+      </div>
+
+      <div id="help" class="panel hidden">
+        <h3>Controls</h3>
+        <table>
+          <tr><td><kbd>←↑↓→</kbd> / <kbd>WASD</kbd></td><td>walk</td></tr>
+          <tr><td><kbd>Space</kbd> / <kbd>Enter</kbd></td><td>study the crystal you face</td></tr>
+          <tr><td>click a crystal</td><td>study it from anywhere</td></tr>
+          <tr><td><kbd>T</kbd></td><td>audit mode: is the geography honest?</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>close card</td></tr>
+          <tr><td><kbd>H</kbd></td><td>toggle this help</td></tr>
+        </table>
+        <div class="potency-legend"><span>pIC50 5</span><i id="potency-ramp"></i><span>8.5+</span></div>
+        <div class="potency-legend"><span class="unlit"></span><span>grey crystal with “?” = not yet tested</span></div>
+        <p class="muted">Each land is one scaffold and each crystal is one compound. Crystals close together are close in chemical space, and the map is the same on every visit for every player. A 📜 over another adventurer means they are studying a crystal.</p>
+      </div>
+    </div>
+
+    <div id="card" class="hidden" role="dialog" aria-modal="true"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

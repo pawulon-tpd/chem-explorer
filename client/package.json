@@ -1,0 +1,24 @@
+{
+  "name": "chem-explorer-client",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "copy-rdkit": "node scripts/copy-rdkit.mjs",
+    "predev": "npm run copy-rdkit",
+    "prebuild": "npm run copy-rdkit",
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rdkit/rdkit": "2025.3.4-1.0.0",
+    "colyseus.js": "0.16.22",
+    "phaser": "3.88.2"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vite": "6.4.3"
+  }
+}
