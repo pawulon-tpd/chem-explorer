@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 interface WorldFile {
   meta: { grid: [number, number] };
   tiles: number[][];
-  compounds: { id: string; tile_x: number; tile_y: number }[];
+  compounds: { id: string; tile_x: number; tile_y: number; activity?: { pIC50: number | null } | null }[];
   decor?: { x: number; y: number; blocks: boolean }[];
   spawns?: [number, number][];
 }
@@ -17,6 +17,10 @@ export class World {
   readonly H: number;
   readonly spawns: [number, number][];
   readonly compoundIds: Set<string>;
+  /** compound id -> region (land) index */
+  readonly regionOf = new Map<string, number>();
+  /** compound id -> pIC50 already measured in world.json (null = untested) */
+  readonly knownPIC50 = new Map<string, number | null>();
   private tiles: number[][];
   private blocked = new Set<string>();
 
@@ -27,6 +31,11 @@ export class World {
     for (const c of d.compounds) this.blocked.add(key(c.tile_x, c.tile_y));
     for (const o of d.decor ?? []) if (o.blocks) this.blocked.add(key(o.x, o.y));
     this.compoundIds = new Set(d.compounds.map((c) => c.id));
+    for (const c of d.compounds) {
+      this.regionOf.set(c.id, d.tiles[c.tile_y][c.tile_x]);
+      const p = c.activity?.pIC50;
+      this.knownPIC50.set(c.id, typeof p === 'number' ? p : null);
+    }
     this.spawns = (d.spawns ?? []).filter(([x, y]) => this.passable(x, y));
     if (!this.spawns.length) {
       for (let y = 0; y < this.H && !this.spawns.length; y++)

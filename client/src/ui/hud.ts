@@ -1,5 +1,7 @@
 import { CLASSES, heroFrame, type HeroLook } from '../gfx/characters';
+import type { SelfStats } from '../net/council';
 import type { Region } from '../world/types';
+import { levelProgress, LEVELS, SKILLS, XP } from '../../../shared/rules';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -9,6 +11,7 @@ export interface RosterEntry extends HeroLook {
   self: boolean;
   regionName?: string;
   reading?: string;
+  level?: number;
 }
 
 /** DOM HUD: region banner, hint, party roster, toasts, help + audit panels, minimap frame. */
@@ -21,6 +24,8 @@ export class Hud {
   private roster = $('roster');
   private toasts = $('toasts');
   private portraits = new Map<string, string>();
+  private sheet = $('sheet');
+  private sheetData: { name: string; look: HeroLook; stats: SelfStats | null; online: boolean } | null = null;
 
   private mock: boolean;
 
@@ -28,6 +33,7 @@ export class Hud {
     this.mock = opts.mock;
     this.setOnline(true);
     $('help-btn').addEventListener('click', () => this.toggleHelp());
+    $('sheet-btn').addEventListener('click', () => this.toggleSheet());
   }
 
   setOnline(online: boolean): void {
@@ -88,7 +94,7 @@ export class Hud {
       const nm = document.createElement('b');
       nm.textContent = e.self ? `${e.name} (you)` : e.name;
       const sub = document.createElement('small');
-      sub.textContent = `${cls?.title ?? e.cls} · ${cls?.role ?? ''}`;
+      sub.textContent = `${e.level ? `Lv ${e.level} ` : ''}${cls?.title ?? e.cls} · ${cls?.role ?? ''}`;
       const where = document.createElement('small');
       where.className = 'where';
       where.textContent = e.reading ? `📜 studying ${e.reading}` : e.regionName ?? '';
@@ -100,9 +106,69 @@ export class Hud {
     this.roster.classList.remove('hidden');
   }
 
-  toast(msg: string): void {
+  /** Own level + XP bar (top-left, under the region banner) and the character sheet. */
+  setSelf(name: string, look: HeroLook, stats: SelfStats | null, online: boolean): void {
+    this.sheetData = { name, look, stats, online };
+    const box = $('xpbar');
+    if (!stats) {
+      box.classList.add('hidden');
+    } else {
+      const { level, into, span } = levelProgress(stats.xp);
+      const max = level >= LEVELS.length;
+      box.innerHTML = '<b></b><span class="track"><i></i></span><small></small>';
+      box.querySelector('b')!.textContent = `Lv ${level}`;
+      (box.querySelector('i') as HTMLElement).style.width = `${Math.round((into / span) * 100)}%`;
+      box.querySelector('small')!.textContent = max ? `${stats.xp} XP · max level` : `${into} / ${span} XP`;
+      box.classList.remove('hidden');
+    }
+    if (!this.sheet.classList.contains('hidden')) this.renderSheet();
+  }
+
+  toggleSheet(): void {
+    this.help.classList.add('hidden');
+    this.audit.classList.add('hidden');
+    this.sheet.classList.toggle('hidden');
+    if (!this.sheet.classList.contains('hidden')) this.renderSheet();
+  }
+
+  private renderSheet(): void {
+    const d = this.sheetData;
+    if (!d) return;
+    const cls = CLASSES.find((c) => c.id === d.look.cls);
+    const s = d.stats;
+    const level = s ? levelProgress(s.xp).level : 1;
+    const el = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    };
+    const head = el('div', 'sheet-head');
+    const img = el('img');
+    img.src = this.portrait(d.look);
+    img.alt = '';
+    const who = el('div');
+    who.append(el('h3', undefined, d.name), el('div', undefined, `${cls?.title} · ${cls?.role}`), el('div', 'muted', s ? `Level ${level} · ${s.xp} XP` : 'Level 1'));
+    head.append(img, who);
+
+    const calib = el('p');
+    if (!d.online) calib.textContent = 'Progress is kept by the realm server. You are exploring solo, so nothing is recorded right now.';
+    else if (!s || s.calls === 0) calib.textContent = 'No resolved calls yet. Vote on grey crystals; XP arrives when their results do.';
+    else calib.textContent = `Calibration: ${s.correct} of ${s.calls} resolved calls correct (${Math.round((100 * s.correct) / s.calls)}%).`;
+
+    const list = el('ul', 'skills');
+    for (const sk of SKILLS.filter((k) => k.cls === d.look.cls)) {
+      const li = el('li', level >= sk.level ? 'unlocked' : 'locked');
+      li.append(el('b', undefined, `${level >= sk.level ? '✦' : '🔒'} ${sk.name}`), el('small', undefined, ` (level ${sk.level})`), el('div', undefined, sk.text));
+      list.append(li);
+    }
+    const rules = el('p', 'muted', `XP comes only from resolved calls: a correct ⚒ on a hit earns ${XP.hitCalled}, a correct ✋ on a miss ${XP.missCalled}, a wrong call ${XP.learned}. Skills give information or speed, never extra votes.`);
+    this.sheet.replaceChildren(head, calib, el('h3', undefined, 'Skills'), list, rules);
+  }
+
+  toast(msg: string, kind: '' | 'xp' | 'level' = ''): void {
     const t = document.createElement('div');
-    t.className = 'toast';
+    t.className = `toast ${kind}`;
     t.textContent = msg;
     this.toasts.append(t);
     setTimeout(() => t.classList.add('fade'), 3200);
@@ -111,11 +177,15 @@ export class Hud {
 
   toggleHelp(): void {
     this.audit.classList.add('hidden');
+    this.sheet.classList.add('hidden');
     this.help.classList.toggle('hidden');
   }
 
   setAudit(on: boolean): void {
-    if (on) this.help.classList.add('hidden');
+    if (on) {
+      this.help.classList.add('hidden');
+      this.sheet.classList.add('hidden');
+    }
     this.audit.classList.toggle('hidden', !on);
   }
 

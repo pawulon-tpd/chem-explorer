@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "reset": "node -e \"require('fs').rmSync('data/progress.json',{force:true});console.log('realm reset')\""
   },
   "dependencies": {
     "@colyseus/core": "0.16.26",

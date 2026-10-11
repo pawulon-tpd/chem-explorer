@@ -10,6 +10,10 @@ Wizard = CADD scientist, Warrior = synthetic chemist, Ranger = medicinal
 chemist, Healer = purification, Paladin = biologist/assay scientist,
 Bard = project leader. All art is procedural (`src/gfx/`); there are no asset files.
 
+Grey (untested) crystals can be voted on: ⚒ synthesise or ✋ skip. Approved
+crystals are made and assayed, and XP goes to players whose call was right. See
+`docs/council-and-progression.md`.
+
 Crystals glow in their potency colour (pIC50 ramp, red to teal). Grey crystals
 with a "?" are untested. The demo potencies are illustrative, not literature
 values.
@@ -36,6 +40,7 @@ RDKit WASM into `public/rdkit/`.
 | Space / Enter | inspect the compound you face |
 | Click a crystal | inspect it from anywhere |
 | T | audit mode: lines to each compound's 3 most similar compounds, plus honesty metrics |
+| C | character sheet: level, XP, skills, calibration |
 | H | help |
 | Esc | close card |
 
@@ -44,6 +49,8 @@ RDKit WASM into `public/rdkit/`.
 ```
 src/main.ts               boot: hero creation, connect, start Phaser
 src/net/session.ts        Colyseus connection + state callbacks
+src/net/council.ts        client mirror of crystal states, votes, own XP
+../shared/rules.ts        XP curve, quorum, skills (shared with the server)
 src/ui/creator.ts         title screen / character creator
 src/gfx/characters.ts     procedural hero sprites per class
 src/gfx/activity.ts       potency colour ramp

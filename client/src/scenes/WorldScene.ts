@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { measured, potencyColour, UNTESTED } from '../gfx/activity';
+import { SKILLS, skillsFor, type SkillId } from '../../../shared/rules';
 import { CLASSES, type HeroLook } from '../gfx/characters';
 import {
   ensureHeroTextures, generateTextures, GROUND_DECOR, TEX, TERRAIN_VARIANTS, TILE, WATER_FRAMES, type Side,
@@ -37,6 +38,17 @@ interface Avatar {
   dir: number;
   frame: number;
   reading: string;
+  level: number;
+}
+
+interface CrystalObjs {
+  c: Compound;
+  crystal: Phaser.GameObjects.Image;
+  glow: Phaser.GameObjects.Arc;
+  q: Phaser.GameObjects.Text;
+  icon: Phaser.GameObjects.Text;
+  label: Phaser.GameObjects.Text;
+  status: string;
 }
 
 export class WorldScene extends Phaser.Scene {
@@ -47,6 +59,9 @@ export class WorldScene extends Phaser.Scene {
   private blocked: Set<string>;
   private compoundAt = new Map<string, Compound>();
   private labels: { c: Compound; text: Phaser.GameObjects.Text }[] = [];
+  private crystals = new Map<string, CrystalObjs>();
+  private labBars!: Phaser.GameObjects.Graphics;
+  private lastBarDraw = 0;
   private me!: Avatar;
   private others = new Map<string, Avatar>();
   private minimap!: Phaser.Cameras.Scene2D.Camera;
@@ -64,10 +79,21 @@ export class WorldScene extends Phaser.Scene {
     this.world = loaded.data;
     this.blocked = buildBlocked(this.world);
     this.hud = new Hud({ mock: loaded.isMock });
-    this.card = new CompoundCard(this.world, {
-      opened: (c) => this.session?.reading(c.id),
-      closed: () => this.session?.reading(null),
-    });
+    this.card = new CompoundCard(
+      this.world,
+      {
+        council: () => this.session?.council ?? null,
+        skills: () => this.mySkills(),
+        online: () => (this.session ? this.others.size + 1 : 1),
+        vote: (id, choice) => this.session?.vote(id, choice),
+        insight: (id) => this.session?.insight(id) ?? Promise.resolve({ id }),
+        potency: (c) => this.potency(c),
+      },
+      {
+        opened: (c) => this.session?.reading(c.id),
+        closed: () => this.session?.reading(null),
+      },
+    );
   }
 
   /** Network callbacks; safe to wire before the scene has been created. */
@@ -78,6 +104,19 @@ export class WorldScene extends Phaser.Scene {
       change: (p, self) => later(() => (self ? this.syncSelf(p, false) : this.updateOther(p))),
       remove: (id) => later(() => this.removeOther(id)),
       reject: (x, y, dir) => later(() => this.snapSelf(x, y, dir)),
+      xp: (e) => later(() => {
+        this.hud.toast(`+${e.gain} XP · ${e.reason}`, 'xp');
+        if (e.leveledUp) {
+          const sk = SKILLS.find((k) => k.cls === this.profile.cls && k.level === e.level);
+          this.hud.toast(sk ? `Level ${e.level}! New skill: ${sk.name}. ${sk.text}` : `Level ${e.level}!`, 'level');
+          this.cameras.main.flash(400, 255, 230, 140);
+        }
+      }),
+      reveal: (id, p, hit) => later(() => {
+        this.hud.toast(`${id} made and assayed: pIC50 ${p.toFixed(1)}, ${hit ? 'a hit!' : 'not a hit.'}`);
+        this.celebrate(id, hit);
+      }),
+      approved: (id) => later(() => this.hud.toast(`The council approved ${id} for synthesis.`)),
       disconnected: () => later(() => {
         this.session = null;
         this.hud.setOnline(false);
@@ -90,6 +129,32 @@ export class WorldScene extends Phaser.Scene {
   attachSession(s: Session | null): void {
     this.session = s;
     this.hud.setOnline(!!s);
+    s?.council.subscribe((id) => {
+      if (!this.me) return; // create() renders everything once it runs
+      if (id) this.renderCrystal(id);
+      else this.renderSelfStats();
+      this.card.refresh(id);
+    });
+  }
+
+  private mySkills(): Set<SkillId> {
+    const st = this.session?.council.self;
+    return st ? skillsFor(this.profile.cls, st.level) : new Set();
+  }
+
+  /** Revealed-in-game result wins over the world file; null = untested. */
+  private potency(c: Compound): number | null {
+    const v = this.session?.council.crystals.get(c.id);
+    return v?.pIC50 ?? measured(c);
+  }
+
+  private renderSelfStats(): void {
+    this.hud.setSelf(this.profile.name, this.profile, this.session?.council.self ?? null, !!this.session);
+    const lvl = this.session?.council.self?.level;
+    if (lvl && this.me && lvl !== this.me.level) {
+      this.me.level = lvl;
+      this.refreshRoster();
+    }
   }
 
   create(): void {
@@ -113,6 +178,7 @@ export class WorldScene extends Phaser.Scene {
     this.scale.on('resize', () => this.placeMinimap());
     this.afterStep();
     for (const fn of this.pendingNet.splice(0)) fn();
+    this.renderSelfStats();
     this.refreshRoster();
   }
 
@@ -193,40 +259,32 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
-  /** Tested crystals glow in their potency colour; untested ones stay dull and unlit. */
+  /** Crystal objects; their look comes from renderCrystal (status + potency). */
   private buildCompounds(): void {
+    this.labBars = this.add.graphics().setDepth(UI_DEPTH - 1);
     for (const c of this.world.compounds) {
       this.compoundAt.set(tileKey(c.tile_x, c.tile_y), c);
-      const p = measured(c);
       const bottom = (c.tile_y + 1) * TILE;
       const delay = (c.tile_x * 7 + c.tile_y * 13) % 900;
       this.add.image(centre(c.tile_x), bottom, TEX.pedestal).setOrigin(0.5, 1).setDepth(ySort(bottom - 1));
-      const s = this.add
+      const glow = this.add.circle(centre(c.tile_x), c.tile_y * TILE + 3, 7, 0xffffff, 0.6).setDepth(ySort(bottom) - 0.5);
+      const crystal = this.add
         .image(centre(c.tile_x), c.tile_y * TILE + 9, TEX.crystal)
         .setOrigin(0.5, 1)
-        .setTint(p === null ? UNTESTED : potencyColour(p))
         .setDepth(ySort(bottom))
         .setInteractive({ useHandCursor: true });
-      s.on('pointerdown', () => this.openCard(c));
-      if (p !== null) {
-        // brighter, larger halo for more potent compounds
-        const strength = Phaser.Math.Clamp((p - 4.5) / 4, 0.15, 1);
-        const glow = this.add.circle(centre(c.tile_x), c.tile_y * TILE + 3, 5 + 4 * strength, potencyColour(p), 0.2).setDepth(ySort(bottom) - 0.5);
-        this.tweens.add({ targets: s, y: s.y - 2, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay });
-        this.tweens.add({ targets: glow, alpha: { from: 0.08, to: 0.12 + 0.3 * strength }, scale: { from: 0.9, to: 1.15 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay });
-      } else {
-        s.setAlpha(0.8);
-        const q = this.add
-          .text(centre(c.tile_x) + 6, c.tile_y * TILE - 1, '?', { fontFamily: '"Pixelify Sans", monospace', fontSize: '7px', color: '#e8ecf2', stroke: '#2a2f3a', strokeThickness: 2, resolution: 8 })
-          .setOrigin(0.5, 1)
-          .setDepth(ySort(bottom) + 0.5);
-        this.tweens.add({ targets: q, alpha: { from: 0.35, to: 0.9 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay });
-      }
-      const text = this.add
-        .text(centre(c.tile_x), c.tile_y * TILE - 5, p === null ? `${c.id} · ?` : `${c.id} · ${p.toFixed(1)}`, {
+      crystal.on('pointerdown', () => this.openCard(c));
+      this.tweens.add({ targets: crystal, y: crystal.y - 2, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay });
+      this.tweens.add({ targets: glow, alpha: { from: 0.12, to: 0.45 }, duration: 1100, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay });
+      const small = { fontFamily: '"Pixelify Sans", monospace', fontSize: '7px', color: '#e8ecf2', stroke: '#2a2f3a', strokeThickness: 2, resolution: 8 };
+      const q = this.add.text(centre(c.tile_x) + 6, c.tile_y * TILE - 1, '?', small).setOrigin(0.5, 1).setDepth(ySort(bottom) + 0.5);
+      this.tweens.add({ targets: q, alpha: { from: 0.35, to: 0.9 }, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay });
+      const icon = this.add.text(centre(c.tile_x) + 7, c.tile_y * TILE - 2, '', { ...small, fontSize: '8px' }).setOrigin(0.5, 1).setDepth(UI_DEPTH - 2);
+      const label = this.add
+        .text(centre(c.tile_x), c.tile_y * TILE - 5, c.id, {
           fontFamily: '"Pixelify Sans", ui-monospace, monospace',
           fontSize: '7px',
-          color: p === null ? '#d4d8e0' : '#fff6d8',
+          color: '#fff6d8',
           stroke: '#2a1a0a',
           strokeThickness: 2,
           resolution: 8,
@@ -234,8 +292,76 @@ export class WorldScene extends Phaser.Scene {
         .setOrigin(0.5, 1)
         .setDepth(UI_DEPTH)
         .setVisible(false);
-      this.labels.push({ c, text });
+      this.labels.push({ c, text: label });
+      this.crystals.set(c.id, { c, crystal, glow, q, icon, label, status: '' });
+      this.renderCrystal(c.id);
     }
+  }
+
+  private renderCrystal(id: string): void {
+    const o = this.crystals.get(id);
+    if (!o) return;
+    const v = this.session?.council.crystals.get(id);
+    const p = this.potency(o.c);
+    const status = v?.status ?? (p === null ? 'untested' : 'tested');
+    o.status = status;
+    let label = o.c.id;
+    let icon = '';
+    if (status === 'tested' && p !== null) {
+      const strength = Phaser.Math.Clamp((p - 4.5) / 4, 0.15, 1);
+      o.crystal.setTint(potencyColour(p)).setAlpha(1);
+      o.glow.setFillStyle(potencyColour(p), 0.6).setRadius(4 + 5 * strength).setVisible(true);
+      label += ` · ${p.toFixed(1)}`;
+    } else {
+      const assaying = status === 'assaying';
+      o.crystal.setTint(assaying ? 0xf4f8ff : UNTESTED).setAlpha(assaying ? 1 : 0.8);
+      o.glow.setFillStyle(0xbfe2ff, 0.6).setRadius(7).setVisible(assaying);
+      if (status === 'untested') {
+        label += ' · ?';
+        const t = v && this.session!.council.tally(v);
+        if (t && (t.yes || t.no)) label += `  ⚒${t.yes} ✋${t.no}`;
+      } else if (status === 'queued') {
+        label += ' · queued';
+        icon = '⏳';
+      } else if (status === 'synthesising') {
+        label += ' · forging';
+        icon = '⚒';
+      } else if (assaying) {
+        label += ' · assay';
+        icon = '⚗';
+      }
+    }
+    o.q.setVisible(status === 'untested');
+    o.icon.setText(icon).setVisible(!!icon);
+    o.label.setText(label);
+    this.drawLabBars(true);
+  }
+
+  /** Progress bars over crystals that are being synthesised or assayed. */
+  private drawLabBars(force = false): void {
+    const now = this.time.now;
+    if (!force && now - this.lastBarDraw < 200) return;
+    this.lastBarDraw = now;
+    const council = this.session?.council;
+    this.labBars.clear();
+    if (!council) return;
+    for (const o of this.crystals.values()) {
+      if (o.status !== 'synthesising' && o.status !== 'assaying') continue;
+      const v = council.crystals.get(o.c.id);
+      if (!v) continue;
+      const x = o.c.tile_x * TILE + 2, y = o.c.tile_y * TILE + 14;
+      this.labBars.fillStyle(0x1a1208, 0.85).fillRect(x - 1, y - 1, 14, 4);
+      this.labBars.fillStyle(o.status === 'synthesising' ? 0xf2a03b : 0x6cb6ff, 1).fillRect(x, y, Math.max(1, Math.round(12 * council.progress(v))), 2);
+    }
+  }
+
+  /** Burst of light when a crystal's result is revealed. */
+  private celebrate(id: string, hit: boolean): void {
+    const o = this.crystals.get(id);
+    if (!o) return;
+    const ring = this.add.circle(o.crystal.x, o.crystal.y - 6, 4, 0xffffff, 0).setStrokeStyle(1.5, hit ? 0x9dffb0 : 0xffd0a0).setDepth(UI_DEPTH - 3);
+    this.tweens.add({ targets: ring, radius: 22, alpha: { from: 1, to: 0 }, duration: 900, ease: 'Cubic.out', onComplete: () => ring.destroy() });
+    this.tweens.add({ targets: o.crystal, scale: { from: 1.6, to: 1 }, duration: 600, ease: 'Back.out' });
   }
 
   // ------------------------------------------------------------- avatars
@@ -243,7 +369,7 @@ export class WorldScene extends Phaser.Scene {
   private makeAvatar(look: HeroLook, name: string, x: number, y: number, dir: number, withTag: boolean, markerColour: number): Avatar {
     ensureHeroTextures(this, look);
     const sprite = this.add.sprite(centre(x), feet(y), TEX.hero(look, dir, 0)).setOrigin(0.5, 1).setDepth(ySort(feet(y) + 1));
-    const a: Avatar = { look, name, sprite, x, y, dir, frame: 0, reading: '', marker: this.add.circle(centre(x), centre(y), 14, markerColour).setStrokeStyle(6, 0xffffff).setDepth(UI_DEPTH) };
+    const a: Avatar = { look, name, sprite, x, y, dir, frame: 0, reading: '', level: 1, marker: this.add.circle(centre(x), centre(y), 14, markerColour).setStrokeStyle(6, 0xffffff).setDepth(UI_DEPTH) };
     if (withTag) {
       a.tag = this.add
         .text(centre(x), feet(y) - 24, name, {
@@ -293,6 +419,7 @@ export class WorldScene extends Phaser.Scene {
 
   /** The server owns our spawn position; on join (and only then) we jump to it. */
   private syncSelf(p: NetPlayer, joined: boolean): void {
+    this.me.level = p.level;
     if (joined) this.snapSelf(p.x, p.y, p.dir);
   }
 
@@ -309,6 +436,8 @@ export class WorldScene extends Phaser.Scene {
     if (this.others.has(p.id)) return;
     const a = this.makeAvatar(p, p.name, p.x, p.y, p.dir, true, 0xffffff);
     a.reading = p.reading;
+    a.level = p.level;
+    a.tag?.setText(`Lv${p.level} ${p.name}`);
     a.scroll?.setVisible(!!p.reading);
     this.others.set(p.id, a);
     const cls = CLASSES.find((c) => c.id === p.cls);
@@ -319,6 +448,11 @@ export class WorldScene extends Phaser.Scene {
   private updateOther(p: NetPlayer): void {
     const a = this.others.get(p.id);
     if (!a) return this.addOther(p);
+    if (a.level !== p.level) {
+      a.level = p.level;
+      a.tag?.setText(`Lv${p.level} ${p.name}`);
+      this.refreshRoster();
+    }
     if (a.reading !== p.reading) {
       a.reading = p.reading;
       a.scroll?.setVisible(!!p.reading);
@@ -370,9 +504,9 @@ export class WorldScene extends Phaser.Scene {
   private refreshRoster(): void {
     const regionName = (x: number, y: number) => this.regionByIndex.get(this.terrainAt(x, y))?.name;
     const entries: RosterEntry[] = [
-      { ...this.profile, id: 'self', self: true, regionName: regionName(this.me.x, this.me.y) },
+      { ...this.profile, id: 'self', self: true, regionName: regionName(this.me.x, this.me.y), level: this.session ? this.me.level : undefined },
       ...[...this.others.entries()].map(([id, a]) => ({
-        ...a.look, id, name: a.name, self: false, regionName: regionName(a.x, a.y), reading: a.reading,
+        ...a.look, id, name: a.name, self: false, regionName: regionName(a.x, a.y), reading: a.reading, level: a.level,
       })),
     ];
     this.hud.setRoster(entries);
@@ -417,6 +551,7 @@ export class WorldScene extends Phaser.Scene {
     kb.on('keydown-ESC', () => this.card.close());
     kb.on('keydown-T', () => this.toggleAudit());
     kb.on('keydown-H', () => this.hud.toggleHelp());
+    kb.on('keydown-C', () => this.hud.toggleSheet());
   }
 
   private heldDir(): number | null {
@@ -429,6 +564,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update(): void {
+    this.drawLabBars();
     if (this.card.isOpen) this.queuedDir = null;
     if (this.moving || this.card.isOpen) return;
     const dir = this.heldDir();
