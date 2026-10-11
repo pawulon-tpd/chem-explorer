@@ -7,6 +7,8 @@ export interface StoredPlayer {
   xp: number;
   calls: number;
   correct: number;
+  supported?: number;
+  refuted?: number;
 }
 
 export interface StoredCrystal {
@@ -17,10 +19,26 @@ export interface StoredCrystal {
   votes: Record<string, { name: string; cls: string; choice: string }>;
 }
 
+export interface StoredHypothesis {
+  statement: string;
+  claim: string;
+  crystals: string[];
+  land: number;
+  author: { pid: string; name: string; cls: string };
+  createdAt: number;
+  status: string;
+  resolvedAt: number;
+  revealed: number;
+  stances: Record<string, { name: string; cls: string; stance: string }>;
+  notes: { name: string; cls: string; text: string; at: number }[];
+}
+
 export interface Progress {
   version: 1;
   players: Record<string, StoredPlayer>;
   crystals: Record<string, StoredCrystal>;
+  hypotheses?: Record<string, StoredHypothesis>;
+  nextHypothesis?: number;
 }
 
 /** JSON-file persistence with debounced, atomic writes (tmp + rename). */

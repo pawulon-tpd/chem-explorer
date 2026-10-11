@@ -41,6 +41,7 @@ RDKit WASM into `public/rdkit/`.
 | Click a crystal | inspect it from anywhere |
 | T | audit mode: lines to each compound's 3 most similar compounds, plus honesty metrics |
 | C | character sheet: level, XP, skills, calibration |
+| Q | quest log: propose, back or doubt hypotheses, add evidence notes |
 | H | help |
 | Esc | close card |
 
@@ -49,7 +50,8 @@ RDKit WASM into `public/rdkit/`.
 ```
 src/main.ts               boot: hero creation, connect, start Phaser
 src/net/session.ts        Colyseus connection + state callbacks
-src/net/council.ts        client mirror of crystal states, votes, own XP
+src/net/council.ts        client mirror of crystal states, votes, hypotheses, own XP
+src/ui/quests.ts          quest log + propose form
 ../shared/rules.ts        XP curve, quorum, skills (shared with the server)
 src/ui/creator.ts         title screen / character creator
 src/gfx/characters.ts     procedural hero sprites per class

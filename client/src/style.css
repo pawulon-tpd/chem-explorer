@@ -51,7 +51,65 @@ kbd {
 #help-btn, #sheet-btn { top: 104px; color: var(--muted); font: 13px var(--pixel); cursor: pointer; pointer-events: auto; }
 #help-btn { left: 14px; }
 #sheet-btn { left: 92px; }
-#help-btn:hover, #sheet-btn:hover { color: var(--gold); }
+#quests-btn { top: 104px; left: 214px; color: var(--muted); font: 13px var(--pixel); cursor: pointer; pointer-events: auto; }
+#help-btn:hover, #sheet-btn:hover, #quests-btn:hover { color: var(--gold); }
+
+/* ---- quest log ---- */
+#quests {
+  top: 144px; left: 14px; width: min(420px, calc(100vw - 28px)); max-height: calc(100vh - 170px); overflow: auto;
+  pointer-events: auto; font-size: 13px;
+}
+.quests-head { display: flex; align-items: center; justify-content: space-between; }
+.quests-head h3 { margin: 2px 0 6px; font: 600 16px var(--pixel); color: var(--gold); }
+#quests h4 { margin: 10px 0 6px; font: 600 13px var(--pixel); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+#quests .muted { font-size: 12px; }
+#quests .small { font-size: 11px; }
+.close-x { background: none; border: 0; color: var(--muted); font-size: 22px; cursor: pointer; }
+.close-x:hover { color: var(--gold); }
+.quest { margin: 8px 0; padding: 8px 10px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(224, 178, 58, 0.35); border-radius: 5px; }
+.quest.supported { border-color: #6aa84f; }
+.quest.refuted { border-color: #b3261e; }
+.quest-top { display: flex; align-items: center; gap: 8px; }
+.quest-top b { font: 700 15px var(--pixel); color: var(--gold); }
+.qstatus { font: 12px var(--pixel); padding: 0 6px; border-radius: 8px; background: #5a4a2a; }
+.qstatus.supported { background: #2f6b30; }
+.qstatus.refuted { background: #7a2018; }
+.statement { margin: 6px 0 2px; font-style: italic; }
+.claim { font: 13px var(--pixel); color: #ffe6a8; }
+.qchips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.qchip { font: 600 12px var(--pixel); padding: 2px 7px; border-radius: 10px; border: 1px solid var(--gold-dim); background: #c9ccd3; color: #1d1408; cursor: pointer; }
+.stance-row { display: flex; gap: 6px; margin: 6px 0 2px; }
+.stance { flex: 1; font: 13px var(--pixel); padding: 4px; border-radius: 4px; cursor: pointer; border: 1px solid var(--gold-dim); background: #3b2614; color: var(--text); }
+.stance.chosen { outline: 2px solid var(--gold); }
+.stance:disabled { opacity: 0.55; cursor: default; }
+.notes { margin-top: 6px; }
+.note-row { font-size: 12px; padding: 2px 0; }
+.note-row b { color: var(--muted); }
+.note-form { display: flex; gap: 4px; margin-top: 4px; }
+.note-form input, .propose textarea {
+  flex: 1; font: 13px var(--font); color: var(--ink); background: var(--parchment); border: 1px solid var(--gold-dim); border-radius: 3px; padding: 4px 6px;
+}
+.note-form button { font: 12px var(--pixel); background: var(--wood); color: var(--parchment); border: 1px solid var(--gold-dim); border-radius: 3px; cursor: pointer; }
+.link-btn { background: none; border: 0; color: var(--muted); font: 13px var(--pixel); cursor: pointer; padding: 4px 0; }
+.link-btn:hover { color: var(--gold); }
+.link-btn.danger { color: #e89a8f; }
+.propose .field-col { display: flex; flex-direction: column; gap: 4px; }
+.propose .field-col span, .propose .field-label { font: 600 13px var(--pixel); color: var(--muted); margin-top: 8px; display: block; }
+.propose textarea { width: 100%; resize: vertical; }
+.claims { display: flex; flex-direction: column; gap: 3px; }
+.claim-opt small, .pick small { color: var(--muted); }
+.picks { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 8px; }
+.pick.untested b { color: #ffd23f; }
+.claim-preview { margin-top: 8px; font: 13px var(--pixel); color: #ffe6a8; }
+.propose .error { color: #ff9c8c; }
+.propose-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.enter.small { width: auto; padding: 6px 18px; font-size: 15px; margin: 0; }
+.card-quests .quest-line { font-size: 12px; padding: 2px 0; }
+.card-quests .quest-line.supported b { color: #2f6b30; }
+.card-quests .quest-line.refuted b { color: #a3281c; }
+.card-quests .quest-line.open b { color: #9a6a00; }
+.quest-actions { display: flex; gap: 8px; margin-top: 6px; }
+.quest-actions .vote { font-size: 13px; padding: 5px; }
 #sheet { top: 144px; left: 14px; width: min(360px, calc(100vw - 28px)); pointer-events: auto; max-height: calc(100vh - 170px); overflow: auto; }
 #sheet h3 { margin: 6px 0; font: 600 15px var(--pixel); color: var(--gold); }
 #sheet p { font-size: 12px; margin: 8px 0; }

@@ -44,11 +44,17 @@ is set at build time. If no server answers within 4 s, the game runs solo.
 | `vote` | `{id, choice}` `'for'`, `'against'` or `'none'` | only on untested crystals; locks once approved |
 | `insight` | `{id}` | skill-gated private info (Foresight, Early readout) |
 | `clock` | | server replies with its time, for progress bars |
+| `propose` | `{statement, claim, crystals}` | new hypothesis; replies `propose-result {ok, id \| error}` |
+| `stance` | `{id, stance}` `'believe'`, `'doubt'` or `'none'` | locks once evidence arrives |
+| `note` | `{id, text}` | evidence note, ≤ 200 chars, 1 per 5 s |
+| `abandon` | `{id}` | author only, before any result |
 
 | server → client | |
 |---|---|
 | state `players` map | pid, name, class, colours, x, y, dir, reading, xp, level, calls, correct |
 | state `crystals` map | status, phase start/end, revealed pIC50, votes (by pid) |
+| state `hypotheses` map | statement, claim, crystals, land, author, status, stances, notes |
+| `quest` | `{id, event, text}`: proposed / supported / refuted (broadcast) |
 | `xp` | `{gain, reason, xp, level, leveledUp}` (to the player concerned) |
 | `reveal` / `council` | result revealed / crystal approved (broadcast) |
 | `insight` / `clock` | replies |

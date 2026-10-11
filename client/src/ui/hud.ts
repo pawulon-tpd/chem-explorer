@@ -1,7 +1,7 @@
 import { CLASSES, heroFrame, type HeroLook } from '../gfx/characters';
 import type { SelfStats } from '../net/council';
 import type { Region } from '../world/types';
-import { levelProgress, LEVELS, SKILLS, XP } from '../../../shared/rules';
+import { HYP, levelProgress, LEVELS, SKILLS, XP } from '../../../shared/rules';
 
 const $ = (id: string) => document.getElementById(id)!;
 
@@ -125,6 +125,7 @@ export class Hud {
   }
 
   toggleSheet(): void {
+    document.getElementById('quests')!.classList.add('hidden');
     this.help.classList.add('hidden');
     this.audit.classList.add('hidden');
     this.sheet.classList.toggle('hidden');
@@ -155,6 +156,8 @@ export class Hud {
     if (!d.online) calib.textContent = 'Progress is kept by the realm server. You are exploring solo, so nothing is recorded right now.';
     else if (!s || s.calls === 0) calib.textContent = 'No resolved calls yet. Vote on grey crystals; XP arrives when their results do.';
     else calib.textContent = `Calibration: ${s.correct} of ${s.calls} resolved calls correct (${Math.round((100 * s.correct) / s.calls)}%).`;
+    const hyps = el('p');
+    hyps.textContent = s ? `Hypotheses authored: ${s.supported} supported, ${s.refuted} refuted.` : '';
 
     const list = el('ul', 'skills');
     for (const sk of SKILLS.filter((k) => k.cls === d.look.cls)) {
@@ -162,8 +165,8 @@ export class Hud {
       li.append(el('b', undefined, `${level >= sk.level ? '✦' : '🔒'} ${sk.name}`), el('small', undefined, ` (level ${sk.level})`), el('div', undefined, sk.text));
       list.append(li);
     }
-    const rules = el('p', 'muted', `XP comes only from resolved calls: a correct ⚒ on a hit earns ${XP.hitCalled}, a correct ✋ on a miss ${XP.missCalled}, a wrong call ${XP.learned}. Skills give information or speed, never extra votes.`);
-    this.sheet.replaceChildren(head, calib, el('h3', undefined, 'Skills'), list, rules);
+    const rules = el('p', 'muted', `XP comes only from resolved outcomes. Crystal calls: a correct ⚒ on a hit earns ${XP.hitCalled}, a correct ✋ on a miss ${XP.missCalled}, a wrong call ${XP.learned}. Hypotheses: author ${HYP.supported} if supported, ${HYP.refuted} if refuted; a right believe/doubt stance ${HYP.stanceRight}. Skills give information or speed, never extra votes.`);
+    this.sheet.replaceChildren(head, calib, hyps, el('h3', undefined, 'Skills'), list, rules);
   }
 
   toast(msg: string, kind: '' | 'xp' | 'level' = ''): void {
@@ -176,6 +179,7 @@ export class Hud {
   }
 
   toggleHelp(): void {
+    document.getElementById('quests')!.classList.add('hidden');
     this.audit.classList.add('hidden');
     this.sheet.classList.add('hidden');
     this.help.classList.toggle('hidden');

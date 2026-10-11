@@ -1,9 +1,9 @@
 import { CLASSES } from '../gfx/characters';
 import { potencyColour, potencyCss, UNTESTED } from '../gfx/activity';
 import { shade } from '../gfx/paint';
-import type { Council, CrystalView, Insight } from '../net/council';
+import type { Council, CrystalView, HypView, Insight } from '../net/council';
 import type { Compound, WorldData } from '../world/types';
-import { HIT, quorum, sarEstimate, type Choice, type SkillId } from '../../../shared/rules';
+import { describeClaim, HIT, quorum, sarEstimate, type Choice, type SkillId } from '../../../shared/rules';
 import { simColourCss } from './audit';
 import { depict } from './rdkit';
 
@@ -41,6 +41,8 @@ export interface CardCouncil {
   insight(id: string): Promise<Insight>;
   /** Measured or revealed pIC50, null when untested. */
   potency(c: Compound): number | null;
+  proposeFrom(c: Compound): void;
+  openQuests(): void;
 }
 
 /** DOM overlay showing one compound. Clicking a neighbour navigates to it. */
@@ -156,7 +158,40 @@ export class CompoundCard {
     const view = council?.crystals.get(c.id);
     const p = this.link.potency(c);
     this.swatch!.style.background = hex(p === null ? UNTESTED : potencyColour(p));
-    this.live.replaceChildren(this.activitySection(c, p), this.councilSection(c, view, council), this.neighbourSection(c));
+    this.live.replaceChildren(this.activitySection(c, p), this.councilSection(c, view, council), this.questSection(c, council), this.neighbourSection(c));
+  }
+
+  private questSection(c: Compound, council: Council | null): HTMLElement {
+    const sec = el('section', 'card-quests');
+    sec.append(el('h4', undefined, 'Quests'));
+    if (!council) {
+      sec.append(el('div', 'note', 'Hypotheses need the realm server.'));
+      return sec;
+    }
+    const hyps: HypView[] = council.hypothesesFor(c.id);
+    for (const h of hyps) {
+      const row = el('div', `quest-line ${h.status}`);
+      const verdict = h.status === 'supported' ? '✓' : h.status === 'refuted' ? '✗' : '!';
+      row.append(el('b', undefined, `${verdict} ${h.id} `), `“${h.statement}”: ${describeClaim(h.claim, h.crystals)}.`);
+      sec.append(row);
+    }
+    if (!hyps.length) sec.append(el('div', 'note', 'No hypothesis names this crystal yet.'));
+    const actions = el('div', 'quest-actions');
+    const prop = el('button', 'vote', '📜 Propose a hypothesis');
+    prop.type = 'button';
+    prop.addEventListener('click', () => {
+      this.close();
+      this.link.proposeFrom(c);
+    });
+    const log = el('button', 'vote against', 'Quest log');
+    log.type = 'button';
+    log.addEventListener('click', () => {
+      this.close();
+      this.link.openQuests();
+    });
+    actions.append(prop, log);
+    sec.append(actions);
+    return sec;
   }
 
   private activitySection(c: Compound, p: number | null): HTMLElement {

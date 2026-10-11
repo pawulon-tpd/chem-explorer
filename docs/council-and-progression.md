@@ -26,7 +26,7 @@ to activity counts").
 | Skip | not a hit | **+60** (called a miss; it was made anyway) |
 | either | the other way | **+15** (learned from the result) |
 
-Nothing else gives XP. Each player's **calibration** (correct calls / resolved
+Nothing else gives XP, apart from hypotheses (below). Each player's **calibration** (correct calls / resolved
 calls) is shown on the character sheet. It's the honest measure of skill.
 
 Hidden results for untested demo crystals live server-side in
@@ -61,9 +61,43 @@ where some players' votes count more would reward rank, not judgement.
 - Progress, votes and lab state persist in `server/data/progress.json`
   (gitignored). Delete it to reset the realm.
 
+## Hypotheses as quests
+
+A hypothesis is a **rationale** (free text, 8–140 characters, e.g. "a 3-halogen
+fills the back pocket") plus a **testable claim** about 1–4 crystals in one
+land:
+
+| Claim | Holds when |
+|---|---|
+| *will all be hits* | every named crystal reaches pIC50 ≥ 7.0 |
+| *will all miss* | no named crystal reaches 7.0 |
+| *first beats second* | exactly two crystals; the first ends up more potent |
+
+- **Must be testable:** at least one named crystal must be untested when proposed,
+  otherwise the answer is already known. Each player can have at most 2 open
+  hypotheses.
+- **Quest markers:** untested crystals named by an open hypothesis show a gold
+  **!** on the map. The quest log (Q) lists open and resolved hypotheses with
+  their crystals' live status.
+- **Stances:** other players can 👍 *believe* or 🤔 *doubt*. The author implicitly
+  believes. Stances lock once the first named crystal's result arrives, so no
+  switching sides after seeing evidence.
+- **Evidence notes:** anyone can attach a short note (what a result says about the
+  claim). Notes earn no XP, to protect the record's signal.
+- **Resolution is automatic** once every named crystal is tested. Nobody rules
+  on it, so no arguing.
+
+| Who | Outcome | XP |
+|---|---|---|
+| author | supported | **+150** |
+| author | refuted | **+50** (a clean refutation is still knowledge) |
+| others | stance right | **+40** |
+| others | stance wrong | **+10** |
+
+The author can abandon a hypothesis until its first result arrives (no XP).
+
 ## Next
 
-- **Hypotheses as quests** (concept doc): a claim scoped to a land. Votes can
-  cite one, and a resolved crystal becomes evidence for or against it. XP for
-  hypotheses resolved.
+- Hypotheses that span lands, or claims about substituents ("every 3-halogen
+  analogue…") rather than named crystals.
 - Real accounts once this leaves prototype stage.

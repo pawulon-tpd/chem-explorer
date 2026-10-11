@@ -1,7 +1,7 @@
 import { Client, getStateCallbacks, type Room } from 'colyseus.js';
-import type { Choice, CrystalStatus } from '../../../shared/rules';
+import type { Choice, Claim, CrystalStatus, HypStatus, Stance } from '../../../shared/rules';
 import type { ClassId, HeroLook } from '../gfx/characters';
-import { Council, type CrystalView, type Insight } from './council';
+import { Council, type CrystalView, type HypView, type Insight } from './council';
 
 export interface Profile extends HeroLook {
   name: string;
@@ -19,6 +19,8 @@ export interface NetPlayer extends Profile {
   level: number;
   calls: number;
   correct: number;
+  supported: number;
+  refuted: number;
 }
 
 export interface XpEvent {
@@ -38,6 +40,7 @@ export interface NetEvents {
   xp(e: XpEvent): void;
   reveal(id: string, pIC50: number, hit: boolean): void;
   approved(id: string): void;
+  quest(id: string, event: string, text: string): void;
   disconnected(): void;
 }
 
@@ -70,6 +73,18 @@ function plainPlayer(id: string, p: any): NetPlayer {
   return {
     id, pid: p.pid, name: p.name, cls: p.cls as ClassId, tunic: p.tunic, skin: p.skin, hair: p.hair,
     x: p.x, y: p.y, dir: p.dir, reading: p.reading, xp: p.xp, level: p.level, calls: p.calls, correct: p.correct,
+    supported: p.supported, refuted: p.refuted,
+  };
+}
+
+function plainHypothesis(id: string, h: any): HypView {
+  const stances: HypView['stances'] = [];
+  h.stances.forEach((v: any, pid: string) => stances.push({ pid, name: v.name, cls: v.cls, stance: v.stance as Stance }));
+  return {
+    id, statement: h.statement, claim: h.claim as Claim, crystals: [...h.crystals], land: h.land,
+    author: { pid: h.authorPid, name: h.authorName, cls: h.authorCls }, createdAt: h.createdAt,
+    status: h.status as HypStatus, resolvedAt: h.resolvedAt, revealed: h.revealed, stances,
+    notes: h.notes.map((n: any) => ({ name: n.name, cls: n.cls, text: n.text, at: n.at })),
   };
 }
 
@@ -83,6 +98,7 @@ function plainCrystal(c: any): CrystalView {
 export class Session {
   readonly council = new Council();
   private pendingInsight = new Map<string, (i: Insight) => void>();
+  private pendingPropose: ((r: { ok: boolean; id?: string; error?: string }) => void) | null = null;
 
   private constructor(private room: Room) {}
 
@@ -113,7 +129,10 @@ export class Session {
       const sync = () => {
         const np = plainPlayer(id, p);
         if (self) {
-          council.self = { pid: np.pid, cls: np.cls, xp: np.xp, level: np.level, calls: np.calls, correct: np.correct };
+          council.self = {
+            pid: np.pid, cls: np.cls, xp: np.xp, level: np.level, calls: np.calls, correct: np.correct,
+            supported: np.supported, refuted: np.refuted,
+          };
           council.emit(null);
         }
         return np;
@@ -137,6 +156,27 @@ export class Session {
       $(c).votes.onRemove(update);
     });
 
+    $(state).hypotheses.onAdd((h: any, id: string) => {
+      const update = () => {
+        council.hypotheses.set(id, plainHypothesis(id, h));
+        council.emit(`hyp:${id}`);
+      };
+      update();
+      $(h).onChange(update);
+      $(h).crystals.onAdd(update);
+      $(h).stances.onAdd((v: any) => {
+        update();
+        $(v).onChange(update);
+      });
+      $(h).stances.onRemove(update);
+      $(h).notes.onAdd(update);
+    });
+
+    room.onMessage('quest', (m: { id: string; event: string; text: string }) => events.quest(m.id, m.event, m.text));
+    room.onMessage('propose-result', (m: { ok: boolean; id?: string; error?: string }) => {
+      s.pendingPropose?.(m);
+      s.pendingPropose = null;
+    });
     room.onMessage('reject', (m: { x: number; y: number; dir: number }) => events.reject(m.x, m.y, m.dir));
     room.onMessage('clock', (m: { now: number }) => (council.clockOffset = m.now - Date.now()));
     room.onMessage('xp', (m: XpEvent) => events.xp(m));
@@ -165,6 +205,31 @@ export class Session {
 
   vote(compoundId: string, choice: Choice | null): void {
     this.room.send('vote', { id: compoundId, choice: choice ?? 'none' });
+  }
+
+  propose(statement: string, claim: Claim, crystals: string[]): Promise<{ ok: boolean; id?: string; error?: string }> {
+    return new Promise((resolve) => {
+      this.pendingPropose = resolve;
+      this.room.send('propose', { statement, claim, crystals });
+      setTimeout(() => {
+        if (this.pendingPropose === resolve) {
+          this.pendingPropose = null;
+          resolve({ ok: false, error: 'The realm did not answer. Try again.' });
+        }
+      }, 4000);
+    });
+  }
+
+  stance(id: string, stance: Stance | null): void {
+    this.room.send('stance', { id, stance: stance ?? 'none' });
+  }
+
+  note(id: string, text: string): void {
+    this.room.send('note', { id, text });
+  }
+
+  abandon(id: string): void {
+    this.room.send('abandon', { id });
   }
 
   /** Skill-gated private info (Foresight, Early readout). */

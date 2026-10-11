@@ -9,6 +9,7 @@ import type { NetEvents, NetPlayer, Profile, Session } from '../net/session';
 import { buildAuditLayer, renderMetrics } from '../ui/audit';
 import { CompoundCard } from '../ui/card';
 import { Hud, type RosterEntry } from '../ui/hud';
+import { QuestLog } from '../ui/quests';
 import { buildBlocked, isPassable, tileKey } from '../world/collision';
 import { OVERLAY_BRIDGE, OVERLAY_PATH, WATER, type Compound, type LoadedWorld, type Region, type WorldData } from '../world/types';
 
@@ -70,6 +71,7 @@ export class WorldScene extends Phaser.Scene {
   private moving = false;
   private queuedDir: number | null = null; // a tap between frames still counts as a step
   private card: CompoundCard;
+  private quests: QuestLog;
   private hud: Hud;
   private session: Session | null = null;
   private pendingNet: (() => void)[] = []; // net events that arrive before create()
@@ -88,12 +90,28 @@ export class WorldScene extends Phaser.Scene {
         vote: (id, choice) => this.session?.vote(id, choice),
         insight: (id) => this.session?.insight(id) ?? Promise.resolve({ id }),
         potency: (c) => this.potency(c),
+        proposeFrom: (c) => this.quests.proposeFrom(c),
+        openQuests: () => this.quests.openList(),
       },
       {
         opened: (c) => this.session?.reading(c.id),
         closed: () => this.session?.reading(null),
       },
     );
+    const noSession = { ok: false, error: 'The realm server is not reachable.' };
+    this.quests = new QuestLog(this.world, {
+      council: () => this.session?.council ?? null,
+      potency: (c) => this.potency(c),
+      openCrystal: (id) => {
+        const c = this.world.compounds.find((x) => x.id === id);
+        if (c) this.openCard(c);
+      },
+      propose: (statement, claim, crystals) => this.session?.propose(statement, claim, crystals) ?? Promise.resolve(noSession),
+      stance: (id, st) => this.session?.stance(id, st),
+      note: (id, text) => this.session?.note(id, text),
+      abandon: (id) => this.session?.abandon(id),
+    });
+    document.getElementById('quests-btn')!.addEventListener('click', () => this.quests.toggle());
   }
 
   /** Network callbacks; safe to wire before the scene has been created. */
@@ -117,6 +135,7 @@ export class WorldScene extends Phaser.Scene {
         this.celebrate(id, hit);
       }),
       approved: (id) => later(() => this.hud.toast(`The council approved ${id} for synthesis.`)),
+      quest: (_id, event, text) => later(() => this.hud.toast(`📜 ${text}`, event === 'supported' ? 'level' : '')),
       disconnected: () => later(() => {
         this.session = null;
         this.hud.setOnline(false);
@@ -131,9 +150,16 @@ export class WorldScene extends Phaser.Scene {
     this.hud.setOnline(!!s);
     s?.council.subscribe((id) => {
       if (!this.me) return; // create() renders everything once it runs
+      if (id?.startsWith('hyp:')) {
+        for (const cid of this.crystals.keys()) this.renderCrystal(cid);
+        this.quests.refresh();
+        this.card.refresh(null);
+        return;
+      }
       if (id) this.renderCrystal(id);
       else this.renderSelfStats();
       this.card.refresh(id);
+      this.quests.refresh();
     });
   }
 
@@ -331,7 +357,8 @@ export class WorldScene extends Phaser.Scene {
         icon = '⚗';
       }
     }
-    o.q.setVisible(status === 'untested');
+    const quest = status !== 'tested' && !!this.session?.council.questCrystals().has(id);
+    o.q.setText(quest ? '!' : '?').setColor(quest ? '#ffd23f' : '#e8ecf2').setVisible(status === 'untested' || quest);
     o.icon.setText(icon).setVisible(!!icon);
     o.label.setText(label);
     this.drawLabBars(true);
@@ -548,10 +575,27 @@ export class WorldScene extends Phaser.Scene {
     };
     kb.on('keydown-SPACE', interact);
     kb.on('keydown-ENTER', interact);
-    kb.on('keydown-ESC', () => this.card.close());
+    kb.on('keydown-ESC', () => {
+      if (this.card.isOpen) this.card.close();
+      else this.quests.close();
+    });
     kb.on('keydown-T', () => this.toggleAudit());
     kb.on('keydown-H', () => this.hud.toggleHelp());
     kb.on('keydown-C', () => this.hud.toggleSheet());
+    kb.on('keydown-Q', () => this.quests.toggle());
+    // Typing in a text field (quest notes, proposals) must not walk the hero or toggle panels.
+    const typing = (t: EventTarget | null) => t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement;
+    document.addEventListener('focusin', (e) => {
+      if (!typing(e.target)) return;
+      kb.enabled = false;
+      kb.disableGlobalCapture();
+      kb.resetKeys();
+    });
+    document.addEventListener('focusout', (e) => {
+      if (!typing(e.target)) return;
+      kb.enabled = true;
+      kb.enableGlobalCapture();
+    });
   }
 
   private heldDir(): number | null {

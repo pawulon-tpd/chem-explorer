@@ -84,3 +84,56 @@ export function sarEstimate(neighbours: [number, number | null][]): number | nul
   }
   return w > 0 ? s / w : null;
 }
+
+// ------------------------------------------------------------------ hypotheses (quests)
+
+export type Claim = 'hits' | 'misses' | 'beats';
+export type Stance = 'believe' | 'doubt';
+export type HypStatus = 'open' | 'supported' | 'refuted' | 'abandoned';
+
+export const HYP = {
+  /** XP to the author when the claim holds / fails (a clean refutation is still knowledge) */
+  supported: 150,
+  refuted: 50,
+  /** XP to players whose stance (believe/doubt) turned out right / wrong */
+  stanceRight: 40,
+  stanceWrong: 10,
+  maxOpenPerAuthor: 2,
+  minCrystals: 1,
+  maxCrystals: 4,
+  statementMin: 8,
+  statementMax: 140,
+  noteMax: 200,
+  maxNotes: 20,
+};
+
+export const CLAIMS: { id: Claim; label: string; help: string }[] = [
+  { id: 'hits', label: 'will all be hits', help: `Every named crystal reaches pIC50 ≥ ${HIT}.` },
+  { id: 'misses', label: 'will all miss', help: `No named crystal reaches pIC50 ${HIT}.` },
+  { id: 'beats', label: 'first beats second', help: 'Exactly two crystals: the first ends up more potent than the second.' },
+];
+
+export function describeClaim(claim: Claim, crystals: string[]): string {
+  if (claim === 'beats') return `${crystals[0]} will be more potent than ${crystals[1]}`;
+  const list = crystals.join(', ');
+  if (claim === 'hits') return crystals.length === 1 ? `${list} will be a hit` : `${list} will all be hits`;
+  return crystals.length === 1 ? `${list} will not be a hit` : `none of ${list} will be a hit`;
+}
+
+/** null while any named crystal is still untested; otherwise whether the claim held. */
+export function evaluateClaim(claim: Claim, potencies: (number | null)[]): boolean | null {
+  if (potencies.some((p) => p === null)) return null;
+  const ps = potencies as number[];
+  if (claim === 'hits') return ps.every((p) => p >= HIT);
+  if (claim === 'misses') return ps.every((p) => p < HIT);
+  return ps[0] > ps[1];
+}
+
+/** Shape check shared by the propose form and the server. Returns an error message or null. */
+export function claimShapeError(claim: Claim, crystals: string[]): string | null {
+  if (!CLAIMS.some((c) => c.id === claim)) return 'Unknown claim.';
+  if (new Set(crystals).size !== crystals.length) return 'Each crystal can be named once.';
+  if (claim === 'beats' && crystals.length !== 2) return '“Beats” compares exactly two crystals.';
+  if (crystals.length < HYP.minCrystals || crystals.length > HYP.maxCrystals) return `Name 1 to ${HYP.maxCrystals} crystals.`;
+  return null;
+}
