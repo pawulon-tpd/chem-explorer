@@ -279,8 +279,8 @@ export class WorldRoom extends Room<WorldState> {
         this.persist(id);
       } else if (c.status === 'assaying' && now >= c.readyAt) {
         this.reveal(id);
-      } else if (c.status === 'untested' && c.votes.size) {
-        this.checkApproval(id); // quorum drops when players leave
+      } else if (c.status === 'untested' && c.votes.size && this.clients.length > 0) {
+        this.checkApproval(id); // quorum drops when players leave (but nobody online decides nothing)
       }
     });
     this.startQueued();

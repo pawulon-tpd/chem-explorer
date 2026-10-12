@@ -6,6 +6,14 @@ similar**. Each land is one scaffold. Players walk the map together, vote on
 which untested compounds the lab should make, propose hypotheses as quests, and
 level up only when their calls turn out right.
 
+![Three players in the Anilinoquinazoline meadow: crystals glow by potency, grey ones are untested](docs/screenshots/overworld.jpg)
+
+| Create your hero | Vote on what the lab makes |
+|---|---|
+| ![Character creator with six lab-role classes](docs/screenshots/creator.jpg) | ![Crystal card with structure, synthesis council and quests](docs/screenshots/crystal-card.jpg) |
+| **Hypotheses as quests** | **Audit mode: is the map honest?** |
+| ![Quest log with open hypotheses, stances and evidence notes](docs/screenshots/quest-log.jpg) | ![Audit mode with similarity lines and honesty metrics](docs/screenshots/audit-mode.jpg) |
+
 - **Explore:** walk the lands (meadow, desert, tundra), open any crystal to see
   its structure (RDKit.js), properties, potency and nearest neighbours.
 - **Synthesis council:** vote ⚒ *synthesise* or ✋ *skip* on grey (untested)

@@ -410,7 +410,7 @@ export class WorldScene extends Phaser.Scene {
         .setOrigin(0.5, 1)
         .setDepth(UI_DEPTH);
       a.scroll = this.add.image(centre(x) + 9, feet(y) - 22, TEX.scroll).setOrigin(0.5, 1).setDepth(UI_DEPTH).setVisible(false);
-      this.tweens.add({ targets: a.scroll, y: '-=2', duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      a.scroll.setData('baseY', feet(y) - 22);
     }
     this.cameras.main.ignore(a.marker);
     if (this.minimap) this.minimap.ignore([a.sprite, ...(a.tag ? [a.tag] : []), ...(a.scroll ? [a.scroll] : [])]);
@@ -420,7 +420,7 @@ export class WorldScene extends Phaser.Scene {
   private placeAvatar(a: Avatar, px: number, py: number): void {
     a.sprite.setPosition(px, py).setDepth(ySort(py + 1));
     a.tag?.setPosition(px, py - 24);
-    a.scroll?.setPosition(px + 9, py - 22);
+    a.scroll?.setPosition(px + 9, py - 22).setData('baseY', py - 22);
     a.marker.setPosition(px, py - TILE / 2 + 2);
   }
 
@@ -607,8 +607,13 @@ export class WorldScene extends Phaser.Scene {
     return this.queuedDir;
   }
 
-  update(): void {
+  update(time: number): void {
     this.drawLabBars();
+    // bob the 📜 "studying" markers around each avatar's current position
+    const bob = Math.sin(time / 190) * 1;
+    for (const a of this.others.values()) {
+      if (a.scroll?.visible) a.scroll.y = (a.scroll.getData('baseY') ?? a.scroll.y) + bob;
+    }
     if (this.card.isOpen) this.queuedDir = null;
     if (this.moving || this.card.isOpen) return;
     const dir = this.heldDir();
