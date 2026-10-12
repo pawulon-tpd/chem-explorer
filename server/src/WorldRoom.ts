@@ -71,7 +71,8 @@ export class WorldRoom extends Room<WorldState> {
       const p = this.state.players.get(client.sessionId);
       if (!p) return;
       const id = typeof msg?.id === 'string' ? msg.id : '';
-      p.reading = WorldRoom.world.compoundIds.has(id) ? id : '';
+      // a compound id (card open), 'arena' (away fighting), or '' (nothing)
+      p.reading = WorldRoom.world.compoundIds.has(id) || id === 'arena' ? id : '';
     });
     this.onMessage('vote', (client, msg: { id?: unknown; choice?: unknown }) => this.onVote(client, msg));
     this.onMessage('clock', (client) => client.send('clock', { now: Date.now() }));

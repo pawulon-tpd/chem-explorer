@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { measured, potencyColour, UNTESTED } from '../gfx/activity';
+import { ATEX, generatePortalTextures, PORTAL_FRAMES } from '../gfx/arenaTextures';
+import type { ArenaInit } from './ArenaScene';
 import { SKILLS, skillsFor, type SkillId } from '../../../shared/rules';
 import { CLASSES, type HeroLook } from '../gfx/characters';
 import {
@@ -63,6 +65,8 @@ export class WorldScene extends Phaser.Scene {
   private crystals = new Map<string, CrystalObjs>();
   private labBars!: Phaser.GameObjects.Graphics;
   private lastBarDraw = 0;
+  private portal: [number, number] | null = null;
+  private inArena = false;
   private me!: Avatar;
   private others = new Map<string, Avatar>();
   private minimap!: Phaser.Cameras.Scene2D.Camera;
@@ -191,6 +195,7 @@ export class WorldScene extends Phaser.Scene {
     this.buildTerrain();
     this.buildDecor();
     this.buildCompounds();
+    this.buildPortal();
     this.spawnSelf();
     this.audit = buildAuditLayer(this, this.world).setDepth(UI_DEPTH - 10);
     renderMetrics(this.world);
@@ -283,6 +288,60 @@ export class WorldScene extends Phaser.Scene {
         this.tweens.add({ targets: img, angle: { from: -0.8, to: 0.8 }, duration: 1800 + ((d.x * 31 + d.y * 17) % 900), yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       }
     }
+  }
+
+  /**
+   * Portal to the arena realm, on a free tile near the spawn. The arena is a
+   * separate place on purpose: it is not part of the chemical map.
+   */
+  private buildPortal(): void {
+    generatePortalTextures(this);
+    const spawns = this.world.spawns ?? [];
+    const spot = [...spawns].reverse().find(([x, y]) => isPassable(this.world, this.blocked, x, y));
+    if (!spot) return;
+    this.portal = spot;
+    const [x, y] = spot;
+    const img = this.add.image(centre(x), (y + 1) * TILE, ATEX.portal(0)).setOrigin(0.5, 1).setDepth(ySort((y + 1) * TILE - 1));
+    let f = 0;
+    this.time.addEvent({ delay: 160, loop: true, callback: () => img.setTexture(ATEX.portal((f = (f + 1) % PORTAL_FRAMES))) });
+    this.add
+      .text(centre(x), y * TILE - 18, 'ARENA', { fontFamily: '"Pixelify Sans", monospace', fontSize: '7px', color: '#bfe6ff', stroke: '#0a1a33', strokeThickness: 2, resolution: 8 })
+      .setOrigin(0.5, 1)
+      .setDepth(UI_DEPTH);
+  }
+
+  private enterArena(): void {
+    if (!this.session) {
+      this.hud.toast('The arena gate is closed while you explore solo: it needs the realm server.');
+      return;
+    }
+    this.inArena = true;
+    this.card.close();
+    this.quests.close();
+    this.session.reading('arena');
+    document.getElementById('hud')!.classList.add('hidden');
+    this.input.keyboard!.enabled = false;
+    const data: ArenaInit = {
+      profile: this.profile,
+      level: this.session.council.self?.level ?? 1,
+      onExit: (reason) => this.leaveArena(reason),
+    };
+    // switch right away (the arena fades itself in), independent of frame rate
+    this.scene.launch('arena', data);
+    this.scene.sleep();
+  }
+
+  private leaveArena(reason?: string): void {
+    this.scene.stop('arena');
+    this.scene.wake();
+    this.inArena = false;
+    this.input.keyboard!.enabled = true;
+    this.input.keyboard!.resetKeys();
+    this.queuedDir = null;
+    document.getElementById('hud')!.classList.remove('hidden');
+    this.cameras.main.fadeIn(300, 0, 0, 0);
+    this.session?.reading(null);
+    if (reason) this.hud.toast(reason);
   }
 
   /** Crystal objects; their look comes from renderCrystal (status + potency). */
@@ -464,6 +523,7 @@ export class WorldScene extends Phaser.Scene {
     const a = this.makeAvatar(p, p.name, p.x, p.y, p.dir, true, 0xffffff);
     a.reading = p.reading;
     a.level = p.level;
+    a.scroll?.setVisible(!!p.reading && p.reading !== 'arena');
     a.tag?.setText(`Lv${p.level} ${p.name}`);
     a.scroll?.setVisible(!!p.reading);
     this.others.set(p.id, a);
@@ -482,7 +542,8 @@ export class WorldScene extends Phaser.Scene {
     }
     if (a.reading !== p.reading) {
       a.reading = p.reading;
-      a.scroll?.setVisible(!!p.reading);
+      a.scroll?.setVisible(!!p.reading && p.reading !== 'arena');
+      a.sprite.setAlpha(p.reading === 'arena' ? 0.45 : 1);
       this.refreshRoster();
     }
     if (p.x !== a.x || p.y !== a.y) {
@@ -586,13 +647,13 @@ export class WorldScene extends Phaser.Scene {
     // Typing in a text field (quest notes, proposals) must not walk the hero or toggle panels.
     const typing = (t: EventTarget | null) => t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement;
     document.addEventListener('focusin', (e) => {
-      if (!typing(e.target)) return;
+      if (!typing(e.target) || this.inArena) return;
       kb.enabled = false;
       kb.disableGlobalCapture();
       kb.resetKeys();
     });
     document.addEventListener('focusout', (e) => {
-      if (!typing(e.target)) return;
+      if (!typing(e.target) || this.inArena) return;
       kb.enabled = true;
       kb.enableGlobalCapture();
     });
@@ -669,6 +730,7 @@ export class WorldScene extends Phaser.Scene {
     for (const { c, text } of this.labels) {
       text.setVisible(Math.max(Math.abs(c.tile_x - x), Math.abs(c.tile_y - y)) <= LABEL_RANGE || this.audit.visible);
     }
+    if (this.portal && x === this.portal[0] && y === this.portal[1] && !this.inArena) this.enterArena();
     const r = this.terrainAt(x, y);
     this.hud.setRegion(this.regionByIndex.get(r));
     this.hud.setHint(this.facing()?.id ?? null);

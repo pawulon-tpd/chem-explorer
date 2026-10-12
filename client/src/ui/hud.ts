@@ -97,7 +97,7 @@ export class Hud {
       sub.textContent = `${e.level ? `Lv ${e.level} ` : ''}${cls?.title ?? e.cls} · ${cls?.role ?? ''}`;
       const where = document.createElement('small');
       where.className = 'where';
-      where.textContent = e.reading ? `📜 studying ${e.reading}` : e.regionName ?? '';
+      where.textContent = e.reading === 'arena' ? '⚔ in the arena' : e.reading ? `📜 studying ${e.reading}` : e.regionName ?? '';
       text.append(nm, sub, where);
       li.append(img, text);
       list.append(li);

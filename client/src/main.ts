@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { POTENCY_GRADIENT } from './gfx/activity';
 import { Session } from './net/session';
+import { ArenaScene } from './scenes/ArenaScene';
 import { WorldScene } from './scenes/WorldScene';
 import './style.css';
 import { createHero } from './ui/creator';
@@ -57,7 +58,7 @@ async function boot(): Promise<void> {
     pixelArt: true,
     backgroundColor: '#0d1424',
     scale: { mode: Phaser.Scale.RESIZE, width: parent.clientWidth, height: parent.clientHeight },
-    scene: [scene],
+    scene: [scene, new ArenaScene()], // only the first scene starts; the arena launches from its portal
   });
   window.addEventListener('beforeunload', () => session?.leave());
   if (import.meta.env.DEV) Object.assign(window, { game, session });

@@ -14,6 +14,10 @@ level up only when their calls turn out right.
 | **Hypotheses as quests** | **Audit mode: is the map honest?** |
 | ![Quest log with open hypotheses, stances and evidence notes](docs/screenshots/quest-log.jpg) | ![Audit mode with similarity lines and honesty metrics](docs/screenshots/audit-mode.jpg) |
 
+**The arena:** a Ranger fends off a Paladin; the scoreboard tracks knockouts for the visit.
+
+![Arena with two fighters, HP and cooldown bars, and the glory scoreboard](docs/screenshots/arena.jpg)
+
 - **Explore:** walk the lands (meadow, desert, tundra), open any crystal to see
   its structure (RDKit.js), properties, potency and nearest neighbours.
 - **Synthesis council:** vote ⚒ *synthesise* or ✋ *skip* on grey (untested)
@@ -27,6 +31,9 @@ level up only when their calls turn out right.
   and resolved hypotheses.
 - **Honest geography:** audit mode (T) shows where map distance and chemical
   distance disagree.
+- **Arena:** step through the blue portal into a separate colosseum and fight
+  other players in real time. Each class has its own attack and special.
+  Glory only: fighting never earns XP, and the arena is outside the chemical map.
 
 > The potency values in the demo data are **illustrative**, not literature
 > measurements.
@@ -66,7 +73,7 @@ Open **http://localhost:5173**, create your hero and press **Enter the realm**.
 - **Playing together on one network:** others open `http://<your-computer's-IP>:5173`.
   The client connects to the server on port 2567 of the same host.
 - **No server running?** The game still works, solo: you can explore and read
-  crystals, but voting, quests and XP need the server.
+  crystals, but voting, quests, XP and the arena need the server.
 
 ## Controls
 
@@ -80,6 +87,23 @@ Open **http://localhost:5173**, create your hero and press **Enter the realm**.
 | T | audit mode: is the geography honest? |
 | H | help |
 | Esc | close a card or panel |
+
+**In the arena** (walk into the blue ARENA portal near the spawn):
+
+| Key | Action |
+|---|---|
+| Space | basic attack in the direction you face |
+| E / Shift | class special (cooldown) |
+| Esc, or walk into the EXIT portal | back to the world |
+
+| Class | Basic attack | Special |
+|---|---|---|
+| Wizard | Firebolt (ranged, 14) | Free-energy nova: 20 to everyone within 2 tiles |
+| Warrior | Sword (melee, 18) | Reflux charge: dash 3 tiles, 22 on impact |
+| Ranger | Arrow (long range, 12) | Volley: three parallel arrows |
+| Healer | Staff (melee, 8) | Purify: heal 35 |
+| Paladin | Hammer (melee, 15; 130 HP) | Shield wall: 70% less damage for 3 s |
+| Bard | Sound wave (short range, 10) | Discord: stun everyone within 2 tiles |
 
 ## Configuration
 
@@ -139,8 +163,9 @@ compound needs about 4 tiles, so 1,000 compounds need roughly 70x70). See
 
 ```
 client/     Phaser 3 + Vite + TypeScript game (procedural pixel art, RDKit.js)
-server/     Colyseus multiplayer server: movement, council, lab, XP, quests
-shared/     game rules shared by client and server (XP, quorum, skills, claims)
+server/     Colyseus multiplayer server: world room (movement, council, lab, XP,
+            quests) and arena room (real-time combat)
+shared/     rules shared by client and server (XP, quorum, skills, claims, arena)
 pipeline/   Python: SDF -> world.json
 data/       demo compounds (3 series x 5 analogues)
 docs/       design notes

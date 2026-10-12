@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ProgressStore } from './progress.js';
 import { World } from './world.js';
 import { WorldRoom } from './WorldRoom.js';
+import { ArenaRoom } from './ArenaRoom.js';
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 const port = Number(process.env.PORT ?? 2567);
@@ -24,6 +25,7 @@ console.log(`[server] progress ${progressPath}: ${Object.keys(WorldRoom.store.da
 
 const server = new Server({ transport: new WebSocketTransport() });
 server.define('world', WorldRoom);
+server.define('arena', ArenaRoom);
 await server.listen(port);
 console.log(`[server] listening on ws://localhost:${port}`);
 

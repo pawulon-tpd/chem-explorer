@@ -33,7 +33,26 @@ client and server.
 The client connects to `ws://<page host>:2567`, or to `VITE_SERVER_URL` if that
 is set at build time. If no server answers within 4 s, the game runs solo.
 
-## Protocol
+## Arena room (`arena`)
+
+A separate, free-for-all room reached through the portal in the world. All
+combat is simulated here (50 ms ticks): movement (players block each other),
+cooldowns, projectiles, specials, knockouts and respawns. Class stats and
+abilities live in [`shared/arena.ts`](../shared/arena.ts). Arena results are
+never saved and never award XP.
+
+| client → server | payload | |
+|---|---|---|
+| join options | `{name, cls, tunic, skin, hair, level}` | level is cosmetic |
+| `move` / `face` | `{dir}` | rejected while stunned or knocked out |
+| `attack` | `{dir}` | melee hits the facing tile; ranged spawns a projectile |
+| `special` | `{dir}` | class special, server-side cooldown |
+
+Server → client: state `fighters` (hp, KOs, cooldown and status timestamps) and
+`shots`; `fx` (hit, slash, nova, heal…), `ko`, `reject`, `exit` (stepped on the
+exit portal).
+
+## Protocol (world room)
 
 | client → server | payload | effect |
 |---|---|---|

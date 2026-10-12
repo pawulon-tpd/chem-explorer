@@ -50,8 +50,18 @@
         </table>
         <div class="potency-legend"><span>pIC50 5</span><i id="potency-ramp"></i><span>8.5+</span></div>
         <div class="potency-legend"><span class="unlit"></span><span>grey crystal with “?” = not yet tested</span></div>
-        <p class="muted">Each land is one scaffold and each crystal is one compound. Crystals close together are close in chemical space, and the map is the same on every visit for every player. A 📜 over another adventurer means they are studying a crystal. Vote ⚒/✋ on grey crystals to decide what the lab makes next. A gold ! marks a crystal named in an open hypothesis (a quest).</p>
+        <p class="muted">Each land is one scaffold and each crystal is one compound. Crystals close together are close in chemical space, and the map is the same on every visit for every player. A 📜 over another adventurer means they are studying a crystal. Vote ⚒/✋ on grey crystals to decide what the lab makes next. Step into the blue ARENA portal to fight other adventurers (no XP, just glory). A gold ! marks a crystal named in an open hypothesis (a quest).</p>
       </div>
+    </div>
+
+    <div id="arena-hud" class="hidden">
+      <div id="arena-title" class="panel">⚔ The Arena <small>fight for glory · no XP here</small></div>
+      <div id="arena-bars" class="panel"></div>
+      <div id="arena-board" class="panel"></div>
+      <div id="arena-feed"></div>
+      <div id="arena-ko" class="hidden"></div>
+      <div id="arena-hint" class="panel"></div>
+      <button id="arena-leave" class="panel" type="button">Leave arena</button>
     </div>
 
     <div id="card" class="hidden" role="dialog" aria-modal="true"></div>

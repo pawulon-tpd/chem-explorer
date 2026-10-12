@@ -52,6 +52,10 @@ src/main.ts               boot: hero creation, connect, start Phaser
 src/net/session.ts        Colyseus connection + state callbacks
 src/net/council.ts        client mirror of crystal states, votes, hypotheses, own XP
 src/ui/quests.ts          quest log + propose form
+src/scenes/ArenaScene.ts  arena realm: combat, projectiles, effects (launched from the world portal)
+src/net/arenaSession.ts   connection to the arena room
+src/ui/arenaHud.ts        HP/cooldown bars, glory scoreboard, combat feed
+src/gfx/arenaTextures.ts  arena tiles, pillars, braziers, portal, projectiles
 ../shared/rules.ts        XP curve, quorum, skills (shared with the server)
 src/ui/creator.ts         title screen / character creator
 src/gfx/characters.ts     procedural hero sprites per class
